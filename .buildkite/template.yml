@@ -1,0 +1,10 @@
+name: "Buildkite Agentic Example: Linear Issue Handler"
+description: " A Buildkite pipeline that uses Claude Code and Buildkite model providers to diagnose and fix Linear issues."
+emoji: ":buildkite:"
+languages:
+  - "TypeScript"
+
+steps:
+  - label: ":pipeline:"
+    command: "buildkite-agent pipeline upload"
+    depends_on: []
