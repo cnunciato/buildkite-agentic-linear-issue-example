@@ -11,8 +11,6 @@ env:
 
 steps:
   - label: ":node: Generate the pipeline"
-    plugins:
-      - docker
     command: |
 
       if [[ "${BUILDKITE_SOURCE:-}" != "webhook" || -z "${BUILDKITE_TRIGGER_ID:-}" ]]; then

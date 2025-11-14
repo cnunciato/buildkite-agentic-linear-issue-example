@@ -33,6 +33,12 @@ function generateLinearPipeline(issueId: string, agentBuildUrl: string): string 
             ...installBuildkiteMCPServer(),
             ...installAndRunAgent(tokenArgs),
         ],
+        plugins: {
+            docker: {
+                image: "buildkite-agentic-example-tools:latest",
+                "propagate-environment": true,
+            },
+        },
         secrets: {
             GITHUB_TOKEN: "GITHUB_TOKEN",
             BUILDKITE_API_TOKEN: "API_TOKEN_BUILDKITE",
