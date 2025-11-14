@@ -26,17 +26,30 @@ function generateLinearPipeline(issueId: string, agentBuildUrl: string): string 
     const tokenArgs = [`LinearIssueID=${issueId}`, `AgentBuildURL=${agentBuildUrl}`];
 
     pipeline.addStep({
+        id: "agent",
         label: ":linear: Analyzing the issue",
-        commands: [
-            ...installGitHubCLI(),
-            ...installLinearCLI(),
-            ...installBuildkiteMCPServer(),
-            ...installAndRunAgent(tokenArgs),
-        ],
+        commands: [...runAgent(tokenArgs)],
         plugins: {
             docker: {
                 image: "buildkite-agentic-example-tools:latest",
-                "propagate-environment": true,
+                "mount-checkout": false,
+                "mount-buildkite-agent": true,
+                environment: [
+                    "BUILDKITE",
+                    "BUILDKITE_AGENT_ENDPOINT",
+                    "BUILDKITE_AGENT_ACCESS_TOKEN",
+                    "BUILDKITE_API_TOKEN",
+                    "BUILDKITE_BUILD_URL",
+                    "GITHUB_CLI_VERSION",
+                    "BUILDKITE_MCP_SERVER_VERSION",
+                    "TRIGGER_ON_ISSUE_LABEL",
+                    "MODEL_PROVIDER",
+                    "GITHUB_TOKEN",
+                    "LINEAR_API_TOKEN",
+                    "LINEAR_ISSUE_ID",
+                    "LINEAR_ISSUE_TITLE",
+                    "LINEAR_ISSUE_DESCRIPTION",
+                ],
             },
         },
         secrets: {
@@ -49,40 +62,12 @@ function generateLinearPipeline(issueId: string, agentBuildUrl: string): string 
     return pipeline.toYAML();
 }
 
-function installGitHubCLI(): string[] {
-    return [
-        "echo '--- :github: Install the GitHub CLI'",
-        "curl -fsSL https://github.com/cli/cli/releases/download/v$${GITHUB_CLI_VERSION}/gh_$${GITHUB_CLI_VERSION}_linux_amd64.deb $GH_URL -o gh_latest.deb && sudo apt install ./gh_latest.deb",
-        "gh --version",
-    ];
-}
-
-function installLinearCLI(): string[] {
-    return [
-        "echo '--- :linear: Install the Linear CLI'",
-        "npm install -g linearis",
-        "linearis --version",
-    ];
-}
-
-function installBuildkiteMCPServer(): string[] {
-    return [
-        "echo '--- :buildkite: Install the Buildkite MCP server'",
-        "curl -fsSL https://github.com/buildkite/buildkite-mcp-server/releases/download/v$${BUILDKITE_MCP_SERVER_VERSION}/buildkite-mcp-server_Linux_x86_64.tar.gz | tar -xz -C /usr/local/bin",
-        "buildkite-mcp-server --version",
-    ];
-}
-
-function installAndRunAgent(tokenArgs: string[] = []): string[] {
+function runAgent(tokenArgs: string[] = []): string[] {
     const provider = process.env.MODEL_PROVIDER;
 
     if (provider === "anthropic") {
         return [
-            "echo '--- :claude: Install and run Claude'",
-            "npm install -g @anthropic-ai/claude-code",
-            "claude --version",
-
-            "npm install && npm run build",
+            "echo '--- :claude: Run Claude Code'",
             `./scripts/claude.sh prompts/user.md ${tokenArgs.join(" ")}`,
         ];
     }
@@ -97,11 +82,12 @@ function installAndRunAgent(tokenArgs: string[] = []): string[] {
 
 /**
  * Executes a buildkite-agent command
+ * TEMPORARILY DISABLED: Not used while webhook service is unavailable
  */
-function buildkiteAgent(...args: string[]): string {
-    const command = `buildkite-agent ${args.join(" ")}`;
-    return execSync(command, { encoding: "utf-8" });
-}
+// function buildkiteAgent(...args: string[]): string {
+//     const command = `buildkite-agent ${args.join(" ")}`;
+//     return execSync(command, { encoding: "utf-8" });
+// }
 
 /**
  * Main processing logic
@@ -109,33 +95,60 @@ function buildkiteAgent(...args: string[]): string {
 async function main() {
     console.log("--- :linear: Processing Linear webhook");
 
-    if (process.env.BUILDKITE_SOURCE !== "webhook") {
-        console.log("Not a webhook trigger, exiting");
-        process.exit(0);
-    }
+    // TEMPORARILY DISABLED: Webhook service is currently unavailable
+    // if (process.env.BUILDKITE_SOURCE !== "webhook") {
+    //     console.log("Not a webhook trigger, exiting");
+    //     process.exit(0);
+    // }
 
-    const webhookPayload = buildkiteAgent("meta-data", "get", "buildkite:webhook").trim();
+    // TEMPORARILY DISABLED: Using hard-coded payload instead
+    // const webhookPayload = buildkiteAgent("meta-data", "get", "buildkite:webhook").trim();
 
-    if (!webhookPayload) {
-        console.error("Error: No webhook payload found");
-        process.exit(1);
-    }
+    // if (!webhookPayload) {
+    //     console.error("Error: No webhook payload found");
+    //     process.exit(1);
+    // }
 
-    console.log("Received webhook payload:");
-    const payload: LinearWebhookPayload = JSON.parse(webhookPayload);
+    // console.log("Received webhook payload:");
+    // const payload: LinearWebhookPayload = JSON.parse(webhookPayload);
+    // console.log(JSON.stringify(payload, null, 2));
+
+    // HARD-CODED PAYLOAD: Temporarily bypassing webhook while service is being restored
+    const payload: LinearWebhookPayload = {
+        action: "update",
+        data: {
+            id: "hardcoded-issue-id",
+            title: "Change the description of my website",
+            description:
+                'Please change the description of my website, nunciato.org, from "Mostly pictures, sometimes words." to "Pretty much only pictures. I\'m tired of writing so much."',
+            state: {
+                name: "In Progress",
+            },
+            labels: [
+                {
+                    id: "buildsworth-analysis-label-id",
+                    name: "buildsworth-analysis",
+                },
+            ],
+        },
+    };
+
+    console.log("Using hard-coded webhook payload:");
     console.log(JSON.stringify(payload, null, 2));
 
     const webhookAction = payload.action;
 
-    if (!webhookAction) {
-        console.error("Error: Could not determine webhook action");
-        process.exit(1);
-    }
+    // TEMPORARILY DISABLED: This check is no longer needed with hard-coded payload
+    // if (!webhookAction) {
+    //     console.error("Error: Could not determine webhook action");
+    //     process.exit(1);
+    // }
 
     console.log(`Webhook action: ${webhookAction}`);
 
-    buildkiteAgent("meta-data", "set", "webhook:action", webhookAction);
-    buildkiteAgent("meta-data", "set", "webhook:source", "linear");
+    // TEMPORARILY DISABLED: Not setting webhook metadata
+    // buildkiteAgent("meta-data", "set", "webhook:action", webhookAction);
+    // buildkiteAgent("meta-data", "set", "webhook:source", "linear");
 
     switch (webhookAction) {
         case "create":
@@ -151,10 +164,11 @@ async function main() {
             console.log(`Issue Title: ${linearIssueTitle}`);
             console.log(`Issue State: ${linearIssueState}`);
 
-            if (!linearIssueId) {
-                console.error("Error: Could not extract issue ID from webhook payload");
-                process.exit(1);
-            }
+            // TEMPORARILY DISABLED: We're using hard-coded issue ID now
+            // if (!linearIssueId) {
+            //     console.error("Error: Could not extract issue ID from webhook payload");
+            //     process.exit(1);
+            // }
 
             const linearIssueLabels = payload.data.labels || [];
             const labelNames = linearIssueLabels.map(label => label.name);

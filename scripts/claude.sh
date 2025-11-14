@@ -2,28 +2,13 @@
 
 set -euo pipefail
 
-# Run as non-root user if currently root
-if [ "$(id -u)" -eq 0 ]; then
-    echo "Running as root, switching to non-root user..."
-
-    # Create a non-root user if it doesn't exist
-    if ! id -u agent >/dev/null 2>&1; then
-        useradd -m -s /bin/bash agent
-    fi
-
-    # Give agent ownership of the current directory
-    chown -R agent:agent "$(pwd)"
-
-    # Switch to agent and re-run this script
-    exec su agent -c "$0 $*"
-fi
-
 # Set up Buildkite Hosted Models
+# These variables are automatically available in Buildkite CI and propagated via Docker
 export ANTHROPIC_BASE_URL="$BUILDKITE_AGENT_ENDPOINT/ai/anthropic"
 export ANTHROPIC_API_KEY="$BUILDKITE_AGENT_ACCESS_TOKEN"
 
 # Configure GitHub authentication using gh CLI if GITHUB_TOKEN is available
-if [ -n "$GITHUB_TOKEN" ]; then
+if [ -n "${GITHUB_TOKEN:-}" ]; then
     echo "Configuring GitHub authentication with gh CLI..."
     echo "$GITHUB_TOKEN" | gh auth login --with-token || {
         echo "Warning: Failed to authenticate with gh CLI, falling back to git token authentication"

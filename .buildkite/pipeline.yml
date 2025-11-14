@@ -5,6 +5,7 @@ secrets:
 
 env:
   GITHUB_CLI_VERSION: "2.83.0"
+  LINEAR_CLI_VERSION: "latest"
   BUILDKITE_MCP_SERVER_VERSION: "0.7.3"
   TRIGGER_ON_ISSUE_LABEL: "buildsworth-analysis"
   MODEL_PROVIDER: "anthropic"
@@ -13,12 +14,12 @@ steps:
   - label: ":node: Generate the pipeline"
     command: |
 
-      if [[ "${BUILDKITE_SOURCE:-}" != "webhook" || -z "${BUILDKITE_TRIGGER_ID:-}" ]]; then
-        echo "Not a webhook trigger -- exiting."
-        exit 0
-      fi
+      # if [[ "${BUILDKITE_SOURCE:-}" != "webhook" || -z "${BUILDKITE_TRIGGER_ID:-}" ]]; then
+      #   echo "Not a webhook trigger -- exiting."
+      #   exit 0
+      # fi
 
       # Generate and upload the pipeline to handle the webhook.
       echo "--- :webhook: Run the webhook handler"
-      npm install && npm run build
+      npm ci && npm run build
       node dist/handler

@@ -1,52 +1,58 @@
-# Use Ubuntu as base image for compatibility with apt-based installations
 FROM ubuntu:22.04
 
-# Avoid prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
+# Expected arguments for tool versions.
+ARG NODE_VERSION="24"
+ARG GITHUB_CLI_VERSION
+ARG LINEAR_CLI_VERSION
+ARG BUILDKITE_MCP_SERVER_VERSION
 
-# Set environment variables for tool versions
-ENV GITHUB_CLI_VERSION=2.62.0
-ENV BUILDKITE_MCP_SERVER_VERSION=0.5.2
-ENV NODE_VERSION=20
-
-# Install system dependencies
+# Install system dependencies.
 RUN apt-get update && apt-get install -y \
     curl \
-    sudo \
     git \
     ca-certificates \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js
+# Install Node.js.
 RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Verify installations
-RUN node --version && npm --version
+# Install the GitHub CLI.
+RUN curl -fsSL https://github.com/cli/cli/releases/download/v${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION}_linux_amd64.tar.gz | tar -xz -C /tmp
+RUN cp /tmp/gh_${GITHUB_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/
 
-# Set working directory
+# Install the Linear CLI.
+RUN npm install -g linearis@${LINEAR_CLI_VERSION}
+
+# Install the Buildkite MCP server.
+RUN curl -fsSL https://github.com/buildkite/buildkite-mcp-server/releases/download/v${BUILDKITE_MCP_SERVER_VERSION}/buildkite-mcp-server_Linux_x86_64.tar.gz | tar -xz -C /usr/local/bin
+
+# Install Claude Code.
+RUN npm install -g @anthropic-ai/claude-code
+
+# Create a non-root user to run the agent in isolation.
+RUN useradd -m -u 1000 -s /bin/bash agent
+
+# Create the workspace.
+RUN mkdir -p /workspace
 WORKDIR /workspace
 
-# Copy package files first for better layer caching
-COPY package*.json ./
+# Copy in the necessary files.
+# COPY .claude /workspace/.claude
+COPY scripts /workspace/scripts
+COPY prompts /workspace/prompts
+COPY *.json /workspace/
 
-# Install Node.js dependencies
-RUN npm ci
+# Run the build.
+RUN npm ci && npm run build
 
-# Copy TypeScript configuration and source files
-COPY tsconfig.json ./
-COPY scripts ./scripts
-COPY prompts ./prompts
-COPY mcp.json ./
+# Give the non-root user ownership of the workspace.
+RUN chown -R agent:agent /workspace
 
-# Build TypeScript files
-RUN npm run build
+# Switch to the non-root user.
+USER agent
 
-# GitHub CLI, Linear CLI, and Buildkite MCP server will be installed
-# by the claude.sh script at runtime to ensure we get the latest versions
-# and to keep the image size smaller.
-
-# Set the default command (can be overridden)
+# Default command
 CMD ["/bin/bash"]
